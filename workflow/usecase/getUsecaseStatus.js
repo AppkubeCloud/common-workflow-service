@@ -42,96 +42,87 @@ exports.handler = async (event) => {
       .catch((err) => {
         console.log("Error connecting to the database. Error :" + err);
       });
-    // Query to get project status based on use cases and workflow stages
-    const useCasesQuery = `
-      SELECT
-        usecase,
-        usecase->>'usecase_assignee_id' AS usecase_assignee_id
-      FROM usecases_table
-      WHERE id = $1
-    `;
- 
-    const useCasesResult = await client.query(useCasesQuery, [usecase_id]);
- 
-    if (useCasesResult.rows.length === 0) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: "Project not found" }),
-      };
-    }
- 
-    const projectUseCase = useCasesResult.rows[0].usecase;
-    const usecaseAssigneeId = useCasesResult.rows[0].usecase_assignee_id;
- 
-    // Process project status based on use cases and workflow stages
-    let projectStatus = [];
- 
-    const currentStage = projectUseCase.current_stage;
-    const workflow = projectUseCase.workflow;
- 
-    let usecaseStatus = [];
- 
-    for (const stage of workflow) {
-      const stageType = Object.keys(stage)[0];
- 
-      if (stageType === currentStage) {
-        usecaseStatus.push({ stage: currentStage, status: "inprogress" });
-        break;
-      } else {
-        usecaseStatus.push({ stage: stageType, status: "completed" });
-      }
-    }
- 
-    projectStatus.push({ usecase: projectUseCase.name, status: usecaseStatus });
- 
-    // Query to get resources working on a particular project
-    const resourcesQuery = `
-      SELECT
-        r.resource->>'name' AS resourcename,
+    const query = `
+    SELECT
+        u.id AS usecase_id,
+        u.usecase->>'name' AS usecase_name,
+        u.usecase->>'status' AS usecase_status,
+        u.usecase->>'current_stage' AS usecase_current_stage,
+        w.id AS workflow_id,
+        w.name AS workflow_name,
+        w.workflow->'stages' AS workflow_stages,
+        u.usecase->>'creation_date' AS assigned_date,
+        u.usecase->>'start_date' AS planned_start_date,
+        u.usecase->>'actual_start_date' AS actual_start_date
+    FROM
+        usecases_table u
+    JOIN
+        workflows_table w ON u.workflow_id = w.id
+    WHERE
+        u.id = $1;
+`;
+
+const useCaseResult = await client.query(query, [usecase_id]);
+const useCaseData = useCaseResult.rows[0];
+
+const stageNames = useCaseData.workflow_stages.map(stage => Object.keys(stage)[0]);
+
+const resourcesQuery = `
+    SELECT
+        r.resource->>'name' AS resource_name,
         r.resource->>'role' AS role,
-        r.resource->'current_task'->>'task_id' AS currenttask_id,
-        r.resource->'current_task'->>'task_name' AS currenttask,
+        r.resource->'current_task'->>'task_id' AS current_task_id,
+        r.resource->'current_task'->>'task_name' AS current_task,
         r.resource->>'image' AS image,
-        COUNT(t.id) AS totaltasks
-      FROM
+        COUNT(t.id) AS total_tasks
+    FROM
         tasks_table t
-      JOIN
+    JOIN
         resources_table r ON t.assignee_id = r.id
-      WHERE
-        t.assignee_id = $1
-      GROUP BY
+    WHERE
+        t.usecase_id = $1
+    GROUP BY
         r.id, r.resource->>'name', r.resource->>'role', r.resource->>'current_task', r.resource->>'image';
-    `;
- 
-    const resourcesResult = await client.query(resourcesQuery, [
-      usecaseAssigneeId,
-    ]);
-    // Format the resource result
-    const formattedResourcesResult =
-      resourcesResult.rows.length > 0
+`;
+
+const resourcesResult = await client.query(resourcesQuery, [usecase_id]);
+
+const formattedResourcesResult =
+    resourcesResult.rows.length > 0
         ? resourcesResult.rows.map((row) => ({
-            resource_name: row.resourcename,
+            resource_name: row.resource_name,
             role: row.role,
-            total_tasks: row.totaltasks,
-            current_task: row.currenttask,
+            total_tasks: row.total_tasks,
+            current_task: row.current_task,
             image: row.image,
-          }))
+            assigned_date: useCaseData.assigned_date,
+            planned_start_date: useCaseData.planned_start_date,
+            actual_start_date: useCaseData.actual_start_date,
+        }))
         : [];
- 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        usecaseStatus: usecaseStatus,
-        resources: formattedResourcesResult,
-      }),
-    };
-  } catch (error) {
-    console.error("Error executing query", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: "Internal Server Error" }),
-    };
-  } finally {
-    await client.end();
-  }
+
+const finalResponse = {
+    usecase_id: useCaseData.usecase_id,
+    usecase_name: useCaseData.usecase_name,
+    usecase_status: useCaseData.usecase_status,
+    usecase_current_stage: useCaseData.usecase_current_stage,
+    workflow_id: useCaseData.workflow_id,
+    workflow_name: useCaseData.workflow_name,
+    stageNames: stageNames,
+    resources: formattedResourcesResult,
+};
+
+return {
+    statusCode: 200,
+    body: JSON.stringify(finalResponse),
+};
+} catch (error) {
+console.error('Error executing query:', error);
+return {
+    statusCode: 500,
+    body: JSON.stringify({ error: 'Internal Server Error' }),
+};
+} finally {
+await client.end();
+}
 };
