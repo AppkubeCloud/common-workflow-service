@@ -303,3 +303,12 @@ functions:
           request:
             schemas:
               application/json: ${file(models/addresource.json)}
+
+  getUsecaseStatus :
+    handler: usecase/getUsecaseStatus.handler
+    role: ${env:LAMBDA_ROLE}
+    events:
+      - http:
+          path: /status
+          method: get
+          cors: true           
