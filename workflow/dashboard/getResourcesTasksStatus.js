@@ -8,9 +8,9 @@ exports.handler = async (event) => {
     let query = `SELECT
                         r.id AS resource_id,
                         (r.resource->>'name') AS resource_name,
-                        COUNT(*) FILTER (WHERE t.task->>'status' = 'completed') AS completed,
-                        COUNT(*) FILTER (WHERE t.task->>'status' = 'inprogress') AS inprogress,
-                        COUNT(*) FILTER (WHERE t.task->>'status' = 'pending') AS pending
+                        COUNT(*) FILTER (WHERE t.task->>'status' = 'completed')::integer AS completed,
+                        COUNT(*) FILTER (WHERE t.task->>'status' = 'inprogress')::integer AS inprogress,
+                        COUNT(*) FILTER (WHERE t.task->>'status' = 'pending')::integer AS pending
                         FROM
                         resources_table AS r
                     LEFT JOIN
