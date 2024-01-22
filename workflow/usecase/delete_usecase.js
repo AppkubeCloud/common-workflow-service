@@ -1,4 +1,5 @@
 const { connectToDatabase } = require("../db/dbConnector");
+const AWS = require('aws-sdk');
 
 exports.handler = async (event) => {
     const id = event.queryStringParameters ? event.queryStringParameters.id : null;
@@ -10,7 +11,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
                 message: "The 'id' query parameters are required and must have a non-empty value."
-            }),
+                }),
         };
     }
     const client = await connectToDatabase();
@@ -32,6 +33,13 @@ exports.handler = async (event) => {
         `;
 
         await client.query(deleteUsecaseQuery, [id]);
+        
+        // Delete Step Functions state machine
+        const stateMachineArn = 'arn:aws:states:us-east-1:657907747545:stateMachine:Amar-State-Machine';
+        const stepfunctions = new AWS.StepFunctions();
+
+        await stepfunctions.deleteStateMachine({ stateMachineArn }).promise();
+
 
         return {
             statusCode: 200,
