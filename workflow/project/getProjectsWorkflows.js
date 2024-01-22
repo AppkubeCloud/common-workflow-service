@@ -44,8 +44,7 @@ exports.handler = async (event) => {
             workflow_id: row.workflow_id,
             workflow_name: row.workflow_name,
             total_usecases: row.total_usecases,
-            task_completed: row.task_completed,
-            task_completion_percentage: calculatePercentage(row.total_tasks, row.task_completed),
+            task_completed: calculatePercentage(row.total_tasks, row.task_completed),
         }));
 
         const response = {
