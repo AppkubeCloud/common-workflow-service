@@ -336,3 +336,12 @@ functions:
           path: /project/task/complete
           method: put
           cors: true
+
+  getUsecases:
+    handler: usecase/getUsecases.handler
+    role: ${env:LAMBDA_ROLE}
+    events:
+      - http:
+          path: /usecase
+          method: get
+          cors: true
