@@ -143,7 +143,7 @@ functions:
           #       application/json: ${file(models/addTeamToProject.json)}
         
   delete_usecase:
-    handler: project/delete_usecase.handler
+    handler: usecase/delete_usecase.handler
     role: ${env:LAMBDA_ROLE}
     events:
       - http:
