@@ -34,8 +34,8 @@ functions:
         method: get
         cors: true
 
-  addWorkflow:
-    handler: project/addWorkflow.handler
+  addWorkflowToProject:
+    handler: project/addWorkflowToProject.handler
     role: ${env:LAMBDA_ROLE}
     events:
       - http:
@@ -59,8 +59,8 @@ functions:
           path: /allresourcebyfilter
           method: get
 
-  getOrgProjectsOverview:
-    handler: dashboard/getOrgProjectsOverview.handler
+  getOrgProjectDetails:
+    handler: dashboard/getOrgProjectDetails.handler
     role: ${env:LAMBDA_ROLE}
     events:
       - http:
@@ -209,8 +209,8 @@ functions:
           method: get
           cors: true       
   #assignStage
-  assignStage:
-    handler: project/assignStage.handler
+  assignUsecase:
+    handler: project/assignUsecase.handler
     role: ${env:LAMBDA_ROLE}
     events:
       - http:
@@ -219,7 +219,7 @@ functions:
           cors: true
           request:
             schemas:
-              application/json: ${file(models/assignStage.json)}
+              application/json: ${file(models/assignUsecase.json)}
 
   addStage:
     handler: /project/addStage.handler
@@ -289,8 +289,8 @@ functions:
           path: /deleteStage
           method: delete
           cors: true
-  addresource :
-    handler: resource/addresource.handler
+  addResource :
+    handler: resource/addResource.handler
     role: ${env:LAMBDA_ROLE}
     events:
       - http:
@@ -301,12 +301,12 @@ functions:
             schemas:
               application/json: ${file(models/addresource.json)}
 
-  resourceListView:
-    handler: resource/resourceListView.handler
+  getResourcesListView:
+    handler: resource/getResourcesListView.handler
     role: ${env:LAMBDA_ROLE}
     events:
       - http:
-          path: /resourcelist
+          path: /resources/list
           method: get
           cors: true
 
