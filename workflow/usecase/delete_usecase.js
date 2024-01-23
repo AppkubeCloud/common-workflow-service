@@ -1,16 +1,17 @@
 const { connectToDatabase } = require("../db/dbConnector");
-const AWS = require('aws-sdk');
+const { SFNClient, StopExecutionCommand } = require("@aws-sdk/client-sfn");
+const sfnClient = new SFNClient();
 
 exports.handler = async (event) => {
-    const id = event.queryStringParameters ? event.queryStringParameters.id : null;
-	if ( id == null || id == '') {
+    const usecase_id = event.queryStringParameters ?.usecase_id ?? null;
+	if ( usecase_id == null || usecase_id == '') {
         return {
             statusCode: 400,
             headers: {
                 'Access-Control-Allow-Origin': '*',
             },
             body: JSON.stringify({
-                message: "The 'id' query parameters are required and must have a non-empty value."
+                message: "The 'usecase_id' query parameters are required and must have a non-empty value."
                 }),
         };
     }
@@ -18,35 +19,33 @@ exports.handler = async (event) => {
 
     try {
 
-        // Delete associated records from tasks_table
-        const deleteTasksQuery = `
-            DELETE FROM tasks_table
-            WHERE usecase_id = $1
-        `;
+        const query = `
+      WITH deleted_rows AS (
+        DELETE FROM tasks_table
+        WHERE usecase_id = $1
+        RETURNING *
+      )
+      DELETE FROM usecases_table
+      WHERE id = $1
+      RETURNING *;
+    `;
 
-        await client.query(deleteTasksQuery, [id]);
+    const result = await client.query(query, [usecase_id]);
+    
+    const executionArn = result.rows[0].arn;
 
-        // Now, delete the usecase from usecases_table
-        const deleteUsecaseQuery = `
-            DELETE FROM usecases_table
-            WHERE id = $1
-        `;
-
-        await client.query(deleteUsecaseQuery, [id]);
-        
-        // Delete Step Functions state machine
-        const stateMachineArn = 'arn:aws:states:us-east-1:657907747545:stateMachine:Amar-State-Machine';
-        const stepfunctions = new AWS.StepFunctions();
-
-        await stepfunctions.deleteStateMachine({ stateMachineArn }).promise();
-
+    const input = {
+        executionArn: executionArn,
+      };
+      const command = new StopExecutionCommand(input);
+      const response = await sfnClient.send(command);
 
         return {
             statusCode: 200,
             headers: {
                 "Access-Control-Allow-Origin": "*",
               },
-            body: JSON.stringify({ message: 'Usecase deleted successfully' }),
+            body: JSON.stringify({ message: 'Execution stopped, Rows deleted successfully' }),
         };
     } catch (error) {
         console.error('Error executing query', error);
@@ -56,6 +55,7 @@ exports.handler = async (event) => {
                 "Access-Control-Allow-Origin": "*",
               },
             body: JSON.stringify({ message: 'Internal server error' }),
+            error: error.message,
         };
     } finally {
         await client.end();
