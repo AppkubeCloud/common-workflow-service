@@ -15,27 +15,38 @@ exports.handler = async (event) => {
 		};
 	}
 	const client = await connectToDatabase();
-	console.log("task_id", task_id);
+	const updateQuery = `
+					update tasks_table 
+					set task = jsonb_set(
+						task,
+						'{status}',
+						'"compelted"')
+					where id = $1`;
+	const getTokenQuery = `
+					SELECT 
+						token
+					FROM 
+						tasks_table 
+					WHERE
+						id = $1`;
+	await client.query('BEGIN');
 	try {
-		const result = await client.query(
-			`SELECT 
-                token
-            FROM 
-                tasks_table 
-            WHERE
-                id = $1`,
-			[task_id]
-		);
-
-		const { token} = result.rows[0];
+		const tokenResult = await client.query(getTokenQuery,[task_id]);
+		const { token} = tokenResult.rows[0];
         const stepFunctionClient = new SFNClient({region : "us-east-1"});
 		const input = {
 			output: "1",
 			taskToken: token,
 		};
         const command = new SendTaskSuccessCommand(input);
-        const respone = await stepFunctionClient.send(command)
-        console.log("response :" ,JSON.stringify(respone))
+		const updateResult = await client.query(updateQuery,[task_id]);
+		if(updateResult.rowCount > 0){
+			const respone = await stepFunctionClient.send(command)
+			if(respone.statusCode !== 200){
+				await client.query('ROLLBACK');
+			}
+		}
+		await client.query('COMMIT');
 		return {
 			statusCode: 200,
 			headers: {

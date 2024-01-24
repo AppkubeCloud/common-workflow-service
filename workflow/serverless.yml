@@ -34,8 +34,8 @@ functions:
         method: get
         cors: true
 
-  addWorkflowToProject:
-    handler: project/addWorkflowToProject.handler
+  addWorkflow:
+    handler: workflow/addWorkflow.handler
     role: ${env:LAMBDA_ROLE}
     events:
       - http:
@@ -345,3 +345,21 @@ functions:
           path: /usecase
           method: get
           cors: true
+
+  getUsecase :
+    handler: usecase/getUsecase.handler
+    role: ${env:LAMBDA_ROLE}
+    events:
+      - http:
+          path: /usecase/{id}
+          method: get
+          cors: true
+
+  updateUsecase :
+    handler: usecase/updateUsecase.handler
+    role: ${env:LAMBDA_ROLE}
+    events:
+      - http:
+          path: /usecase/{id}
+          method: put
+          cors: true        

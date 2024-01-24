@@ -21,10 +21,10 @@ exports.handler = async (event) => {
             body: JSON.stringify({ error: 'Missing workflow_id parameter' }),
         };
     }
-    const usecase_name = event.queryStringParameters?.usecase_name;  //optional
+
+    const client = await connectToDatabase();
 
     try {
-        const client = await connectToDatabase();
 
         let query = `
             SELECT
@@ -45,16 +45,11 @@ exports.handler = async (event) => {
             WHERE
                 usecases_table.project_id = $1
                 AND usecases_table.workflow_id = $2
+            GROUP BY 
+                usecases_table.id, usecases_table.usecase, resources_table.resource
         `;
 
         const params = [project_id, workflow_id];
-
-        if (usecase_name) {
-            query += ` AND usecases_table.usecase->>'name' = $3`;
-            params.push(usecase_name);
-        }
-
-        query += `GROUP BY usecases_table.id, usecases_table.usecase, resources_table.resource`;
 
         const result = await client.query(query, params);
 
