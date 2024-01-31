@@ -43,7 +43,7 @@ exports.handler = async (event) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify("workflow sent for deletion and updated workflow status success"),
+      body: JSON.stringify({message:"workflow sent for deletion and updated workflow status success"}),
     };
   } catch (error) {
     console.error("Error executing query", error);

@@ -16,12 +16,12 @@ deleteWorkflow:
               method: delete
               cors: true
 
-getAllWorkflows:
-    handler: workflow/getAllWorkflows.handler
+getWorkflow:
+    handler: workflow/getWorkflow.handler
     role: ${env:LAMBDA_ROLE}
     events:
         - http:
-              path: /workflow/{project_id}
+              path: /workflow/{id}
               method: get
               cors: true
 
