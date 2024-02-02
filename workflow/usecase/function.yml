@@ -42,6 +42,15 @@ addusecase:
               method: post
               cors: true
 
+getUsecaseForm:
+    handler: usecase/getUsecaseForm.handler
+    role: ${env:LAMBDA_ROLE}
+    events:
+        - http:
+              path: /usecase/{id}/form
+              method: get
+              cors: true           
+
 
 
 
