@@ -3,7 +3,7 @@ const { z } = require("zod");
 
 exports.handler = async (event) => {
 	const status = event.queryStringParameters?.status ?? null;
-	const validStatusValues = ["unassigned", "comlpeted", "inprogress"];
+	const validStatusValues = ["unassigned", "completed", "inprogress"];
 	const statusSchema = z
 		.string()
 		.nullable()
