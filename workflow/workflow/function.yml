@@ -24,3 +24,12 @@ addWorkflow:
               path: /workflow
               method: post
               cors: true
+
+allWorkflow:
+    handler: workflow/allWorkflow.handler
+    role: ${env:LAMBDA_ROLE}
+    events:
+      - http:
+          path: /workflows
+          method: get
+          cors: true
