@@ -1,8 +1,22 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { SFNClient, SendTaskSuccessCommand } = require("@aws-sdk/client-sfn");
+const { z } = require("zod")
 
 exports.handler = async (event) => {
 	const task_id = event.queryStringParameters?.task_id ?? null;
+	const IdSchema = z.string().uuid({ message: "Invalid task id" });
+	const isUuid = IdSchema.safeParse(task_id);
+	if (!isUuid.success) {
+		return {
+			statusCode: 400,
+			headers: {
+				"Access-Control-Allow-Origin": "*",
+			},
+			body: JSON.stringify({
+				error: isUuid.error.issues[0].message,
+			}),
+		};
+	}
 	if (task_id == null) {
 		return {
 			statusCode: 400,
