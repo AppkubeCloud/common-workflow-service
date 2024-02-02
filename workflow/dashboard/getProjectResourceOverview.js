@@ -3,7 +3,7 @@ const { z } = require("zod");
 
 exports.handler = async (event) => {
 	const status = event.queryStringParameters?.status ?? null;
-	const validStatusValues = ["unassigned", "comlpeted", "inprogress"]
+	const validStatusValues = ["unassigned", "completed", "inprogress"]
 	const statusSchema = z.string().nullable().refine((value) => value === null || validStatusValues.includes(value), {
 		message: "Invalid status value",
 	}); 
@@ -67,7 +67,6 @@ exports.handler = async (event) => {
 						const resourceIds = Array.from(
 							new Set(team.map((e) => Object.values(e)).flat().flat())
 						);
-							console.log(resourceIds)
 				const resourceQuery = `
 					SELECT
 						id as resource_id,
@@ -92,7 +91,6 @@ exports.handler = async (event) => {
 								email,
 							})
 						);
-						console.log(resources)
 					}
 					return {
 						project_id,
@@ -104,7 +102,7 @@ exports.handler = async (event) => {
 						created_date: manager_current_task?.created_date || "",
 						due_date: manager_current_task?.due_date || "",
 						total_tasks : parseInt(total_tasks),
-						project_resources: resources != undefined ? resources : null ,
+						project_resources: resources != undefined ? resources : [] ,
 					};
 				}
 			)
