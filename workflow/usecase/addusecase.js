@@ -71,11 +71,13 @@ exports.handler = async (event) => {
         };
     }
     const usecase_id = uuid();
+    const usecaseNameWithoutSpaces = usecase_name.replace(/ /g,"_")
+    const newUsecaseName = usecase_id.split('-')[4] + "@"+usecaseNameWithoutSpaces;
     //Check for unqiness of usecase name here if required-- TO DO --
     const stepFunctionClient = new SFNClient({ region: "us-east-1" });
     const input = {
         stateMachineArn: "",
-        name: usecase_name + `-1`,
+        name: newUsecaseName,
         input: JSON.stringify({
             flag: "new",
             usecase_id: usecase_id,
@@ -100,7 +102,7 @@ exports.handler = async (event) => {
             const creationDate = response.startDate;
             console.log("name ", stages[0].name)
             const usecase = {
-                name: usecase_name + `-1`,
+                name: newUsecaseName,
                 creation_date: creationDate,
                 created_by_id: created_by_id,
                 assigned_to_id: assigned_to_id,

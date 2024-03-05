@@ -39,16 +39,16 @@ exports.handler = async (event) => {
 		const { token ,usecase_id } = tokenResult.rows[0];
         const stepFunctionClient = new SFNClient({region : "us-east-1"});
 		const input = {
-			output: usecase_id,
+			output: JSON.stringify(usecase_id),
 			taskToken: token,
 		};
         const command = new SendTaskSuccessCommand(input);
 		const updateResult = await client.query(updateQuery,[task_id]);
+		console.log("updateResult",updateResult)
 		if(updateResult.rowCount > 0){
 			const respone = await stepFunctionClient.send(command)
-			if(respone.statusCode !== 200){
-				await client.query('ROLLBACK');
-			}
+			console.log("respone",respone);
+			
 		}
 		await client.query('COMMIT');
 		return {

@@ -1,7 +1,8 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { SFNClient, CreateStateMachineCommand } = require("@aws-sdk/client-sfn");
-const { generateStateMachine2 } = require("./generateStateMachine");
+const { generateStateMachine1 } = require("./generateStateMachine");
 const { z } = require("zod");
+const { v4: uuid} = require("uuid")
 
 exports.handler = async (event) => {
 	const { name, created_by_id, project_id, stages } = JSON.parse(event.body);
@@ -73,7 +74,7 @@ exports.handler = async (event) => {
 		};
 	}
 	const sfnClient = new SFNClient({ region: "us-east-1" });
-	const newStateMachine = generateStateMachine2(stages);
+	const newStateMachine = generateStateMachine1(stages);
 
 	const client = await connectToDatabase();
 	try {
@@ -101,8 +102,8 @@ exports.handler = async (event) => {
 				}),
 			};
 		}
-		const project = projectResult.rows[0];
-		const workflowName = project.project.name + "-" + name;
+		const random = uuid().split('-')[4]
+		const workflowName = random+"@"+name.replace(/ /g,"_");
 		const input = {
 			name: workflowName,
 			definition: JSON.stringify(newStateMachine),
