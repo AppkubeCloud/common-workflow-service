@@ -1,6 +1,6 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { SFNClient, CreateStateMachineCommand } = require("@aws-sdk/client-sfn");
-const { generateStateMachine2 } = require("./generateStateMachine");
+const { generateStateMachine1 } = require("./generateStateMachine");
 const { z } = require("zod");
 const { v4: uuid} = require("uuid")
  
@@ -74,7 +74,7 @@ exports.handler = async (event) => {
         };
     }
     const sfnClient = new SFNClient({ region: "us-east-1" });
-    const newStateMachine = generateStateMachine2(stages);
+    const newStateMachine = generateStateMachine1(stages);
  
     const client = await connectToDatabase();
     try {
@@ -157,4 +157,7 @@ exports.handler = async (event) => {
             }),
         };
     }
+    finally {
+		await client.end();
+	}
 };

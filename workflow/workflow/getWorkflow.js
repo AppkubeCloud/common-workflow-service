@@ -50,4 +50,7 @@ exports.handler = async (event) => {
 			}),
 		};
 	}
+	finally {
+		await client.end();
+	}
 };
