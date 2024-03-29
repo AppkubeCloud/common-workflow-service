@@ -6,7 +6,17 @@ const {
     UpdateStateMachineCommand,
     StartExecutionCommand,
 } = require("@aws-sdk/client-sfn");
-exports.handler = async (event) => {
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { pathParamsValidator } = require("../util/pathParamsValidator");
+
+const idSchema = z.object({
+  id: z.string().uuid({ message: "Invalid employee id" }),
+});
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const useCaseId = event.pathParameters?.id;
     const { name, updated_by_id, stages } = JSON.parse(event.body);
     const IdSchema = z.string().uuid({ message: "Invalid id" });
@@ -73,8 +83,9 @@ exports.handler = async (event) => {
 										FROM 
                                             employee as r
 										WHERE
-                                            id = $1`,
-            [updated_by_id]
+                                            id = $1
+                                            AND org_id = $2`,
+            [updated_by_id, org_id]
         );
         resourcedetails = details.rows[0];
         const useCaseResult = await client.query(
@@ -90,8 +101,9 @@ exports.handler = async (event) => {
 										JOIN
                                             tasks_table AS t ON u.id = t.usecase_id
 										WHERE 
-                                        u.id = $1`,
-            [useCaseId]
+                                        u.id = $1
+                                        AND org_id = $2`,
+            [useCaseId, org_id]
         );
 
         let resultObject = { workflow_id: "", taskarray: [] };
@@ -183,4 +195,8 @@ exports.handler = async (event) => {
     } finally {
         await client.end();
     }
-};
+})
+
+    .use(authorize())
+    .use(pathParamsValidator(idSchema))
+    .use(errorHandler())

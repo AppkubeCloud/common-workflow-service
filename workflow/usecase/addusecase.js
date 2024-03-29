@@ -1,8 +1,38 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { bodyValidator } = require("../../util/bodyValidator");
 const { SFNClient, StartExecutionCommand } = require("@aws-sdk/client-sfn");
 const { v4: uuid } = require("uuid");
-exports.handler = async (event) => {
+
+const UsecaseSchema = z.object({
+    created_by_id: z.string().uuid({
+        message: "Invalid created by id",
+    }),
+    usecase_name: z.string()
+    .regex(/^[^#%^&*}{;:"><,?\[\]`|@]+$/, {
+        message: "name should not contain special symbols",
+    })
+    .min(3, {
+        message: "usecase name should be atleast 3 characters long",
+    })
+    .max(70, {
+        message: "usecase name should should be less than 70 characters long",
+    })
+    ,
+    assigned_to_id: z.string().uuid({
+        message: "Invalid assigned to id",
+    }),
+    description: z.string(),
+    start_date: z.coerce.date(),
+    end_date: z.coerce.date(),
+});
+
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const {
         project_id,
         created_by_id,
@@ -41,28 +71,6 @@ exports.handler = async (event) => {
         start_date: start_date,
         end_date: end_date,
     };
-    const UsecaseSchema = z.object({
-        created_by_id: z.string().uuid({
-            message: "Invalid created by id",
-        }),
-        usecase_name: z.string()
-        .regex(/^[^#%^&*}{;:"><,?\[\]`|@]+$/, {
-			message: "name should not contain special symbols",
-		})
-        .min(3, {
-            message: "usecase name should be atleast 3 characters long",
-        })
-        .max(70, {
-            message: "usecase name should should be less than 70 characters long",
-        })
-        ,
-        assigned_to_id: z.string().uuid({
-            message: "Invalid assigned to id",
-        }),
-        description: z.string(),
-        start_date: z.coerce.date(),
-        end_date: z.coerce.date(),
-    });
     const shemaresult = UsecaseSchema.safeParse(newUsecase);
     if (!shemaresult.success) {
         return {
@@ -98,11 +106,11 @@ exports.handler = async (event) => {
                         SELECT COUNT(*)
                         FROM usecases_table 
                         WHERE LOWER(usecase->>'name') = LOWER($1)
-                        AND project_id = $2::uuid;
+                        AND project_id = $2::uuid
+                        AND org_id = $3::uuid;
     `
     const client = await connectToDatabase();
-    try {
-        const exists = await client.query(usecaseExist, [usecaseNameWithoutSpaces, project_id])
+    const exists = await client.query(usecaseExist, [usecaseNameWithoutSpaces, project_id, org_id])
         if (exists.rows[0].count > 0) {
 			return {
 				statusCode: 400,
@@ -173,21 +181,10 @@ exports.handler = async (event) => {
                 }),
             };
         }
-    } catch (error) {
-        return {
-            statusCode: 500,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-            },
-            body: JSON.stringify({
-                message: error.message,
-                error: error
-            }),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+.use(authorize())
+.use(errorHandler())
+.use(bodyValidator(UsecaseSchema))
 
 const generateStages = (stages) => {
 	return stages.map((stage) => {

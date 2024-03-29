@@ -1,6 +1,12 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
-exports.handler = async (event) => {
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const project_id = event.queryStringParameters?.project_id;
     const workflow_id = event.queryStringParameters?.workflow_id;
     const IdSchema = z.string().uuid({ message: "Invalid id" });
@@ -26,7 +32,7 @@ exports.handler = async (event) => {
         };
     }
     const client = await connectToDatabase();
-    try {
+
         let query = `
             SELECT
                 usecases_table.id AS usecase_id,
@@ -48,6 +54,7 @@ exports.handler = async (event) => {
             WHERE
                 usecases_table.project_id = $1
                 AND usecases_table.workflow_id = $2
+                AND org_id = $3
             GROUP BY 
                 usecases_table.id, 
                 usecases_table.usecase->>'name',
@@ -60,7 +67,7 @@ exports.handler = async (event) => {
                 usecases_table.usecase->>'end_date';
         `;
 
-        const params = [project_id, workflow_id];
+        const params = [project_id, workflow_id, org_id];
 
         const result = await client.query(query, params);
         const usecases = result.rows.map((row) => ({
@@ -86,18 +93,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(response),
         };
-    } catch (e) {
-        return {
-            statusCode: 400,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-				"Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify({
-                error: e.message || "An error occurred",
-            }),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+.use(authorize())
+.use(pathParamsValidator(idSchema))
+.use(errorHandler())
