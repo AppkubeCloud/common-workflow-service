@@ -36,7 +36,7 @@ exports.handler = middy(async (event, context) => {
 				"Access-Control-Allow-Origin": "*",
 			},
 			body: JSON.stringify({
-				message: "workflow with same name already exists",
+				message: "Project with same name already exists",
 			}),
 		}
 	}
