@@ -1,7 +1,16 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { pathParamsValidator } = require("../util/pathParamsValidator");
 
-exports.handler = async (event) => {
+const idSchema = z.object({
+  id: z.string().uuid({ message: "Invalid employee id" }),
+});
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const usecaseId = event.pathParameters?.id ?? null;
     const usecaseIdSchema = z.string().uuid({message : "Invalid usecase id"})
     const isUuid = usecaseIdSchema.safeParse(usecaseId)
@@ -18,8 +27,6 @@ exports.handler = async (event) => {
         };
     }
     const client = await connectToDatabase();
-
-    try {
         const query = `
             SELECT u.usecase,
                    t.id AS id,
@@ -33,9 +40,10 @@ exports.handler = async (event) => {
                    JOIN tasks_table t ON u.id = t.usecase_id
                    JOIN projects_table p ON u.project_id = p.id
              WHERE u.id = $1
+             AND org_id = $2
         `;
 
-        const jsonData = await client.query(query, [usecaseId]);
+        const jsonData = await client.query(query, [usecaseId, org_id]);
         const usecaseData = jsonData.rows[0];
         const stageDetails = usecaseData.usecase.stages.map(stage => {
             const stageName = Object.keys(stage)[0];
@@ -69,16 +77,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(stageDetails),
         };
-    } catch (e) {
-        return {
-            statusCode: 500,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-				"Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify({ error: e.message || "An error occurred"}),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+    .use(authorize())
+    .use(pathParamsValidator(idSchema))
+    .use(errorHandler())

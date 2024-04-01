@@ -1,7 +1,17 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { pathParamsValidator } = require("../util/pathParamsValidator");
 
-exports.handler = async (event) => {
+const idSchema = z.object({
+  id: z.string().uuid({ message: "Invalid employee id" }),
+});
+
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const usecase_id = event.pathParameters?.id ?? null;
     const usecaseIdSchema = z.string().uuid({message : "Invalid usecase id"})
     const isUuid = usecaseIdSchema.safeParse(usecase_id)
@@ -18,7 +28,6 @@ exports.handler = async (event) => {
         };
     }
     const client = await connectToDatabase();
-    try {
         const query = `
             SELECT tasks_table.task ->> 'stage' as Stagenames,
              metadocs_table.doc_name ,
@@ -27,8 +36,9 @@ exports.handler = async (event) => {
             FROM metadocs_table
             INNER JOIN tasks_table ON metadocs_table.tasks_id = tasks_table.id
             WHERE tasks_table.usecase_id = $1
+            AND org_id = $2
         `;
-        const { rows } = await client.query(query, [usecase_id]);
+        const { rows } = await client.query(query, [usecase_id, org_id]);
         const DocNamesByStage = [];
         rows.forEach(result => {
             const stage = result.stagenames;
@@ -52,16 +62,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(resultArray),
         };
-    } catch (e) {
-        return {
-            statusCode: 500,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-				"Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify({  error: e.message || "An error occurred",}),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+    .use(authorize())
+    .use(pathParamsValidator(idSchema))
+    .use(errorHandler())

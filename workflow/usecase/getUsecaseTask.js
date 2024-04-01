@@ -1,9 +1,17 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { pathParamsValidator } = require("../util/pathParamsValidator");
 
-exports.handler = async (event) => {
+const idSchema = z.object({
+  id: z.string().uuid({ message: "Invalid employee id" }),
+});
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const usecase_id = event.pathParameters?.id;
-
     const uuidSchema = z.string().uuid({ message: "Invalid Usecase Id" });
     const isUuid = uuidSchema.safeParse(usecase_id);
 
@@ -56,6 +64,7 @@ exports.handler = async (event) => {
 			) AS d ON d.tasks_id = t.id
 			WHERE
 				t.usecase_id = $1
+                AND org_id = $2
 			GROUP BY
 				t.id, t.task, t.assignee_id, CONCAT(e.first_name, ' ', e.last_name), e.image, edd.designation;
 `;
@@ -66,8 +75,7 @@ exports.handler = async (event) => {
             usecases_table
         WHERE id = $1::uuid
         `;
-    try {
-        const usecaseRes = await client.query(usecaseQuery, [usecase_id]);
+        const usecaseRes = await client.query(usecaseQuery, [usecase_id, org_id]);
         const result = await client.query(query, [usecase_id]);
 
         if (result.rows.length === 0) {
@@ -157,19 +165,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(usecaseData),
         };
-    } catch (error) {
-        console.error("Error executing query:", error);
-        return {
-            statusCode: 500,
-            headers: {
-                "Access-Control-Allow-Origin": "*",
-            },
-            body: JSON.stringify({
-                message: error.message,
-                error: error,
-            }),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+    .use(authorize())
+    .use(pathParamsValidator(idSchema))
+    .use(errorHandler())

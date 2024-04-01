@@ -1,6 +1,16 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
-exports.handler = async (event) => {
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { pathParamsValidator } = require("../util/pathParamsValidator");
+
+const idSchema = z.object({
+  id: z.string().uuid({ message: "Invalid employee id" }),
+});
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const usecase_id = event.pathParameters.id;
     const uuidSchema = z.string().uuid();
     const isUuid = uuidSchema.safeParse(usecase_id);
@@ -50,9 +60,10 @@ exports.handler = async (event) => {
               $1::jsonb
             )
             WHERE id = $2
+            AND org_id = $3
             RETURNING *;
             `;
-        const values = [checked, usecase_id];
+        const values = [checked, usecase_id, org_id];
         const result = await client.query(query, values);
         const updatedChecklist = result.rows[0]?.usecase?.stages[0]?.[stage_name]?.checklist[item_id - 1];
 
@@ -77,4 +88,7 @@ exports.handler = async (event) => {
     } finally {
         client.end();
     }
-};
+})
+    .use(authorize())
+    .use(pathParamsValidator(idSchema))
+    .use(errorHandler())

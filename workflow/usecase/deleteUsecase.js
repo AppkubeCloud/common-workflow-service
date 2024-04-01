@@ -1,7 +1,18 @@
 const { SFNClient, StopExecutionCommand } = require("@aws-sdk/client-sfn");
 const { z } = require("zod");
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { pathParamsValidator } = require("../util/pathParamsValidator");
 const { connectToDatabase } = require("../db/dbConnector");
-exports.handler = async (event) => {
+
+const idSchema = z.object({
+    id: z.string().uuid({ message: "Invalid employee id" }),
+  });
+
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const usecase_id = event.pathParameters?.id ?? null;
     const usecaseIdSchema = z.string().uuid({ message: "Invalid usecase id" });
     const isUuid = usecaseIdSchema.safeParse(usecase_id);
@@ -34,10 +45,10 @@ exports.handler = async (event) => {
                                   $2::jsonb,
                                   true
                                 )
-                                WHERE id = $1`;
+                                WHERE id = $1
+                                AND org_id = $2`;
     await client.query("BEGIN");
-    try {
-        const result = await client.query(getarnQuery, [usecase_id]);
+        const result = await client.query(getarnQuery, [usecase_id, org_id]);
         executionArn = result.rows[0].arn;
         const input = {
             executionArn: executionArn,
@@ -62,17 +73,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify("usecase data updated successfully"),
         };
-    } catch (error) {
-        console.error("Error executing query", error);
-        return {
-            statusCode: 500,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-				"Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify({ error: "Internal Server Error" }),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+    .use(authorize())
+    .use(pathParamsValidator(idSchema))
+    .use(errorHandler())

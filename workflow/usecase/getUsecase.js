@@ -1,6 +1,17 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
-exports.handler = async (event) => {
+const middy = require("middy");
+const { errorHandler } = require("../util/errorHandler")
+const { authorize } = require("../util/authorizer")
+const { pathParamsValidator } = require("../util/pathParamsValidator");
+
+const idSchema = z.object({
+  id: z.string().uuid({ message: "Invalid employee id" }),
+});
+
+exports.handler = middy(async (event, context, callback) => {
+    context.callbackWaitsForEmptyEventLoop = false;
+    const org_id = event.user["custom:org_id"]
     const usecase_id = event.pathParameters?.id;
     const usecaseIdSchema = z.string().uuid({ message: "Invalid usecase id" });
     const isUuid = usecaseIdSchema.safeParse(usecase_id);
@@ -17,7 +28,6 @@ exports.handler = async (event) => {
         };
     }
     const client = await connectToDatabase();
-    try {
         const query = `
         SELECT  d.*,
                 e.*,
@@ -37,9 +47,10 @@ exports.handler = async (event) => {
             LEFT JOIN
                 workflows_table AS w ON u.workflow_id = w.id
             WHERE u.id =$1
+            AND org_id = $2
 `;
  
-        const result = await client.query(query, [usecase_id]);
+        const result = await client.query(query, [usecase_id, org_id]);
 
         const total_tasks = result.rows.length;
         const output = result.rows[0];
@@ -71,20 +82,8 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(response),
         };
-    } catch (error) {
-        console.log(error)
-        return {
-            statusCode: 500,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify({
-                error: error.message,
-                error: error
-            }),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+
+    .use(authorize())
+    .use(pathParamsValidator(idSchema))
+    .use(errorHandler())
