@@ -1,5 +1,5 @@
-const { connectToDatabase } = require("../db/dbConnector");
-const { z } = require("zod");
+const { connectToDatabase } = require("../db/dbConnector")
+const { z } = require("zod")
 const middy = require("@middy/core")
 const { authorize } = require("../util/authorizer")
 const { errorHandler } = require("../util/errorHandler")
@@ -9,9 +9,9 @@ const idSchema = z.object({
 })
 exports.handler = middy(async (event, context) => {
 	context.callbackWaitsForEmptyEventLoop = false
-    const project_id =event.pathParameters?.id ?? null;
-    const client = await connectToDatabase();
-        const usecasesQuery = `
+	const project_id = event.pathParameters?.id ?? null
+	const client = await connectToDatabase()
+	const usecasesQuery = `
                 SELECT
                      w.id,
                      w.name AS workflow_name,
@@ -26,28 +26,29 @@ exports.handler = middy(async (event, context) => {
                 GROUP BY u.workflow_id, w.name, w.id
                  `
 
-        const usecasesResult = await client.query(usecasesQuery, [project_id]);
-        const workflows = usecasesResult.rows.map(row => ({
-            workflow_id: row.id,
-            workflow_name: row.workflow_name.split('@')[1].replace(/_/g," "),
-            total_usecases: parseInt(row.total_usecases) || 0,
-            task_completed: calculatePercentage(row.total_tasks, row.task_completed) || 0,
-            completed_usecases: parseInt(row.completed_usecases) || 0
-        }));
-        await client.end();
-        return {
-            statusCode: 200,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-				"Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify(workflows),
-        };
+	const usecasesResult = await client.query(usecasesQuery, [project_id])
+	const workflows = usecasesResult.rows.map(row => ({
+		workflow_id: row.id,
+		workflow_name: row.workflow_name.split("@")[1].replace(/_/g, " "),
+		total_usecases: parseInt(row.total_usecases) || 0,
+		task_completed:
+			calculatePercentage(row.total_tasks, row.task_completed) || 0,
+		completed_usecases: parseInt(row.completed_usecases) || 0,
+	}))
+	await client.end()
+	return {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Credentials": true,
+		},
+		body: JSON.stringify(workflows),
+	}
 })
-.use(authorize())
-.use(pathParamsValidator(idSchema))
-.use(errorHandler())
+	.use(authorize())
+	.use(pathParamsValidator(idSchema))
+	.use(errorHandler())
 
 function calculatePercentage(total, completed) {
-    return total === 0 ? 0 : (completed / total) * 100;
+	return total === 0 ? 0 : (completed / total) * 100
 }
