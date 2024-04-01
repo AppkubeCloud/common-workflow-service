@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "offline": "^0.0.1",
-    "serverless": "^3.38.0"
-  }
-}
