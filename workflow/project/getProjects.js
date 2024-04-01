@@ -1,7 +1,16 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
+const middy = require("middy")
+const { authorize } = require("../util/authorizer")
+const { errorHandler } = require("../util/errorHandler")
+const { queryParamsValidator } = require("../util/queryParamsValidator")
 
-exports.handler = async (event) => {
+const idSchema = z.object({
+	status: z.string({ message: "Invalid status value" }),
+})
+exports.handler = middy(async (event, context) => {
+	context.callbackWaitsForEmptyEventLoop = false
+	const org_id = event.user["custom:org_id"]
 	const status = event.queryStringParameters?.status ?? null;
 	const validStatusValues = ["unassigned", "completed", "inprogress"];
 	const statusSchema = z
@@ -26,7 +35,6 @@ exports.handler = async (event) => {
 		};
 	}
 	const client = await connectToDatabase();
-	try {
 		let query = `
                     select 
                         p.id as project_id,
@@ -43,8 +51,8 @@ exports.handler = async (event) => {
 		if (status != null) {
 			query += `
                     where 
-                        p.project->>'status' = $1`;
-			queryparams.push(status);
+                        p.project->>'status' = $1 AND p.org_id = $2`;
+			queryparams.push(status,org_id);
 		}
 		query += `
                     group by
@@ -70,6 +78,7 @@ exports.handler = async (event) => {
 				};
 			}
 		);
+		await client.end();
 		return {
 			statusCode: 200,
 			headers: {
@@ -77,18 +86,7 @@ exports.handler = async (event) => {
 			},
 			body: JSON.stringify(response),
 		};
-	} catch (error) {
-		return {
-			statusCode: 500,
-			headers: {
-				"Access-Control-Allow-Origin": "*",
-			},
-			body: JSON.stringify({ 
-				message: error.message,
-				error: error
-			}),
-		};
-	} finally {
-		await client.end();
-	}
-};
+})
+.use(authorize())
+.use(queryParamsValidator(idSchema))
+.use(errorHandler())

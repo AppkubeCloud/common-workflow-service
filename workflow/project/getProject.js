@@ -1,23 +1,18 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
+const middy = require("middy")
+const { authorize } = require("../util/authorizer")
+const { errorHandler } = require("../util/errorHandler")
+const { pathParamsValidator } = require("../util/pathParamsValidator")
 
-exports.handler = async (event) => {
+const idSchema = z.object({
+	id: z.string().uuid({ message: "Invalid project id" }),
+})
+
+exports.handler = middy(async (event, context) => {
+	context.callbackWaitsForEmptyEventLoop = false
     const project_id = event.pathParameters?.id;
-    const projectIdSchema = z.string().uuid({message : "Invalid project id"})
-    const isUuid = projectIdSchema.safeParse(project_id)
-	if(!isUuid.success){
-		return {
-			statusCode: 400,
-			headers: {
-				"Access-Control-Allow-Origin": "*",
-			},
-			body: JSON.stringify({
-				error: isUuid.error.issues[0].message
-			}),
-		};
-	}
     const client = await connectToDatabase();
-    try {
         const projectQuery = `
         SELECT
             p.id AS project_id,
@@ -57,7 +52,7 @@ exports.handler = async (event) => {
             description: project.project_description || "",
             workflows: workflows,
         };
-
+        await client.end()
         return {
             statusCode: 200,
             headers: {
@@ -66,20 +61,11 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(response),
         };
-    } catch (error) {
-        console.error(error);
-        return {
-            statusCode: 500,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-				"Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify({ error: 'Internal Server Error' }),
-        };
-    }finally{
-        await client.end();
-    }
-};
+
+})
+    .use(authorize())
+	.use(pathParamsValidator(idSchema))
+	.use(errorHandler())
 
 function calculatePercentage(total, completed) {
     return total === 0 ? 0 : (completed / total) * 100;

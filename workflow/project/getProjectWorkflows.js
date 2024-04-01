@@ -1,24 +1,16 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
-
-exports.handler = async (event) => {
+const middy = require("middy")
+const { authorize } = require("../util/authorizer")
+const { errorHandler } = require("../util/errorHandler")
+const { pathParamsValidator } = require("../util/pathParamsValidator")
+const idSchema = z.object({
+	id: z.string().uuid({ message: "Invalid project id" }),
+})
+exports.handler = middy(async (event, context) => {
+	context.callbackWaitsForEmptyEventLoop = false
     const project_id =event.pathParameters?.id ?? null;
-    const projectIdSchema = z.string().uuid({message : "Invalid project id"})
-    const isUuid = projectIdSchema.safeParse(project_id)
-	if(!isUuid.success){
-		return {
-			statusCode: 400,
-			headers: {
-				"Access-Control-Allow-Origin": "*",
-			},
-			body: JSON.stringify({
-				error: isUuid.error.issues[0].message
-			}),
-		};
-	}
     const client = await connectToDatabase();
-    try {
-
         const usecasesQuery = `
                 SELECT
                      w.id,
@@ -42,7 +34,7 @@ exports.handler = async (event) => {
             task_completed: calculatePercentage(row.total_tasks, row.task_completed) || 0,
             completed_usecases: parseInt(row.completed_usecases) || 0
         }));
-
+        await client.end();
         return {
             statusCode: 200,
             headers: {
@@ -51,21 +43,10 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(workflows),
         };
-    } catch (error) {   
-        console.error(error);
-        
-        return {
-            statusCode: 500,
-            headers: {
-               "Access-Control-Allow-Origin": "*",
-				"Access-Control-Allow-Credentials": true,
-            },
-            body: JSON.stringify({ error: 'Internal Server Error' }),
-        };
-    } finally {
-        await client.end();
-    }
-};
+})
+.use(authorize())
+.use(pathParamsValidator(idSchema))
+.use(errorHandler())
 
 function calculatePercentage(total, completed) {
     return total === 0 ? 0 : (completed / total) * 100;

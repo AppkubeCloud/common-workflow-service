@@ -1,7 +1,14 @@
 const { connectToDatabase } = require("../db/dbConnector");
 const { z } = require("zod");
-
-exports.handler = async (event) => {
+const middy = require("middy")
+const { authorize } = require("../util/authorizer")
+const { errorHandler } = require("../util/errorHandler")
+const { pathParamsValidator } = require("../util/pathParamsValidator")
+const idSchema = z.object({
+	id: z.string().uuid({ message: "Invalid project id" }),
+})
+exports.handler = middy(async (event, context) => {
+	context.callbackWaitsForEmptyEventLoop = false
 	const projectId = event.pathParameters?.id ?? null;
 	const projectIdSchema = z.string().uuid({message : "Invalid project id"})
     const isUuid = projectIdSchema.safeParse(projectId)
@@ -23,7 +30,6 @@ exports.handler = async (event) => {
                 from  
                 	projects_table as p
                 where p.id = $1::uuid`;
-	try {
 		const result = await client.query(query,[projectId]);
 		console.log("roles ", result.rowCount)
 		const roles = result.rows[0].roles;
@@ -61,6 +67,7 @@ exports.handler = async (event) => {
 				[roleName] : ress.rows
 			}
 		}));
+		await client.end();
 		return {
 			statusCode: 200,
 			headers: {
@@ -68,19 +75,7 @@ exports.handler = async (event) => {
 			},
 			body: JSON.stringify(ress),
 		};
-	} catch (e) {
-		return {
-			statusCode: 500,
-			headers: {
-				"Access-Control-Allow-Origin": "*",
-			},
-			body: JSON.stringify({
-				message : "no project ID's present",
-				error : e
-			}),
-		};
-	}
-	finally {
-		await client.end();
-	}
-};
+})
+.use(authorize())
+.use(pathParamsValidator(idSchema))
+.use(errorHandler())
