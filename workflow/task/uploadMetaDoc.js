@@ -18,18 +18,20 @@ exports.handler = async (event) => {
             }),
         };
     }
-    const { doc_name, doc_url } = JSON.parse(event.body);
+    const { doc_name, doc_url, type } = JSON.parse(event.body);
     const currentTimestamp = new Date().toISOString();
     const createdBy = "13a7d5ff-64c2-4a6f-87da-82e5fb78ce8f";
     const metadocsObj = {
         doc_name: doc_name,
         doc_url: doc_url,
+        type: type
     };
     const metadocsSchema = z.object({
         doc_name: z.string(),
         doc_url: z.string().url({
             message : "invalid string"
-        })
+        }),
+        type: z.string().min(3, { message: "type must be atleast 3 characters" }),
     });
     const result = metadocsSchema.safeParse(metadocsObj);
     if (!result.success) {
@@ -49,14 +51,15 @@ exports.handler = async (event) => {
 
         let query = `
 					insert into metadocs_table
-					(tasks_id, created_by, doc_name, doc_url, created_time) values ($1, $2, $3, $4, $5)
+					(tasks_id, created_by, doc_name, doc_url, created_time, type) values ($1, $2, $3, $4, $5, $6)
 					returning *`;
         let queryparam = [
             task_id,
             createdBy,
             doc_name,
             doc_url,
-            currentTimestamp
+            currentTimestamp,
+            type
         ];
         const result = await client.query(query, queryparam);
         return {

@@ -33,7 +33,8 @@ exports.handler = async (event) => {
 						'id', d.id,
 						'name', d.doc_name,
 						'doc_url', d.doc_url,
-						'created_time', d.created_time
+						'created_time', d.created_time,
+                        'type', d.type
 					)
 				) AS docs
 			FROM
@@ -50,7 +51,8 @@ exports.handler = async (event) => {
 					id,
 					doc_name,
 					doc_url,
-					created_time
+					created_time,
+                    type
 				FROM
 					metadocs_table
 			) AS d ON d.tasks_id = t.id
@@ -145,6 +147,7 @@ exports.handler = async (event) => {
                             doc_id: doc.id,
                             doc_url: doc.doc_url,
                             created_time: doc.created_time,
+                            type: doc.type
                         })),
                 };
             });
