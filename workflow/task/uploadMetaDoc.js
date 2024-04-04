@@ -18,15 +18,16 @@ exports.handler = async (event) => {
             }),
         };
     }
-    const { doc_name, doc_url, type } = JSON.parse(event.body);
+    const { createdBy, doc_name, doc_url, type } = JSON.parse(event.body);
     const currentTimestamp = new Date().toISOString();
-    const createdBy = "13a7d5ff-64c2-4a6f-87da-82e5fb78ce8f";
     const metadocsObj = {
+        createdBy: createdBy,
         doc_name: doc_name,
         doc_url: doc_url,
         type: type
     };
     const metadocsSchema = z.object({
+        createdBy: z.string().uuid(),
         doc_name: z.string(),
         doc_url: z.string().url({
             message : "invalid string"
