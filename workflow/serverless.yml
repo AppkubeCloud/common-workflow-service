@@ -21,7 +21,8 @@ provider:
     environment:
         BUCKET_NAME: ${env:BUCKET_NAME}
         BUCKET_FOLDER_NAME: ${env:BUCKET_FOLDER_NAME}      
-
+        COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID}
+        COGNITO_POOL_ID: ${env:COGNITO_POOL_ID}
 
 functions: 
     - ${file(./project/function.yml)}

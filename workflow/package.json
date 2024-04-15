@@ -15,7 +15,7 @@
 		"dotenv": "^16.4.5",
 		"@middy/core": "^4.7.0",
 		"@middy/error-logger": "^4.7.0",
-    "jsonwebtoken": "^9.0.2",
+    	"jsonwebtoken": "^9.0.2",
 		"jwks-rsa": "^3.1.0",
 		"pg": "^8.11.3",
 		"uuid": "^9.0.1",
